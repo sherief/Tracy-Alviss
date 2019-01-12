@@ -31,7 +31,7 @@ public:
         m_depth = depth;
     }
 
-    tracy_force_inline void EmitBegin()
+    tracy_force_inline void EmitBegin( int64_t time = -1 )
     {
         Magic magic;
         auto& token = s_token.ptr;
@@ -39,7 +39,8 @@ public:
         auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>(magic);
         (m_depth >= 0) ? MemWrite(&item->hdr.type, QueueType::ZoneBeginCallstack) : MemWrite(&item->hdr.type, QueueType::ZoneBegin);
         #ifdef TRACY_RDTSCP_OPT
-        MemWrite(&item->zoneBegin.time, Profiler::GetTime(item->zoneBegin.cpu));
+        const int64_t targetTime = (time == -1) ? Profiler::GetTime(item->zoneBegin.cpu) : time;
+        MemWrite(&item->zoneBegin.time, targetTime);
         #else
         uint32_t cpu;
         MemWrite(&item->zoneBegin.time, Profiler::GetTime(cpu));
@@ -52,7 +53,7 @@ public:
         if(m_depth >= 0) s_profiler.SendCallstack(m_depth, m_thread);
     }
 
-    tracy_force_inline void EmitEnd()
+    tracy_force_inline void EmitEnd( int64_t time = -1 )
     {
         Magic magic;
         auto& token = s_token.ptr;
@@ -60,7 +61,8 @@ public:
         auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>(magic);
         MemWrite(&item->hdr.type, QueueType::ZoneEnd);
         #ifdef TRACY_RDTSCP_OPT
-        MemWrite(&item->zoneEnd.time, Profiler::GetTime(item->zoneEnd.cpu));
+        const int64_t targetTime = (time == -1) ? Profiler::GetTime(item->zoneEnd.cpu) : time;
+        MemWrite(&item->zoneEnd.time, targetTime);
         #else
         uint32_t cpu;
         MemWrite(&item->zoneEnd.time, Profiler::GetTime(cpu));

@@ -15,28 +15,16 @@ namespace tracy
 class ExplicitZone
 {
 public:
-    tracy_force_inline ExplicitZone( const SourceLocationData* srcloc, bool is_active = true )
-#ifdef TRACY_ON_DEMAND
-        : m_active( s_profiler.IsConnected() )
-#else
-        : m_active( is_active )
-#endif
+    tracy_force_inline ExplicitZone( const SourceLocationData* srcloc )
     {
-        if( !m_active ) return;
         const auto thread = GetThreadHandle();
         m_thread = thread;
         m_srcloc = srcloc;
         m_depth = -1;
     }
 
-    tracy_force_inline ExplicitZone( const SourceLocationData* srcloc, int depth, bool is_active = true )
-#ifdef TRACY_ON_DEMAND
-        : m_active( s_profiler.IsConnected() )
-#else
-        : m_active( is_active )
-#endif
+    tracy_force_inline ExplicitZone( const SourceLocationData* srcloc, int depth )
     {
-        if( !m_active ) return;
         const auto thread = GetThreadHandle();
         m_thread = thread;
         m_srcloc = srcloc;
@@ -84,7 +72,6 @@ public:
 
     tracy_force_inline void Text(const char* txt, size_t size)
     {
-        if(!m_active) return;
         Magic magic;
         auto& token = s_token.ptr;
         auto ptr = (char*)tracy_malloc(size + 1);
@@ -100,7 +87,6 @@ public:
 
     tracy_force_inline void Name( const char* txt, size_t size )
     {
-        if( !m_active ) return;
         Magic magic;
         auto& token = s_token.ptr;
         auto ptr = (char*)tracy_malloc( size+1 );
@@ -118,7 +104,6 @@ private:
     uint64_t m_thread;
     const SourceLocationData* m_srcloc;
     int m_depth;
-    const bool m_active;
 };
 
 }

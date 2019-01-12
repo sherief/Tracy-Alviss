@@ -25,21 +25,8 @@ public:
         if( !m_active ) return;
         const auto thread = GetThreadHandle();
         m_thread = thread;
-        Magic magic;
-        auto& token = s_token.ptr;
-        auto& tail = token->get_tail_index();
-        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>( magic );
-        MemWrite( &item->hdr.type, QueueType::ZoneBegin );
-#ifdef TRACY_RDTSCP_OPT
-        MemWrite( &item->zoneBegin.time, Profiler::GetTime( item->zoneBegin.cpu ) );
-#else
-        uint32_t cpu;
-        MemWrite( &item->zoneBegin.time, Profiler::GetTime( cpu ) );
-        MemWrite( &item->zoneBegin.cpu, cpu );
-#endif
-        MemWrite( &item->zoneBegin.thread, thread );
-        MemWrite( &item->zoneBegin.srcloc, (uint64_t)srcloc );
-        tail.store( magic + 1, std::memory_order_release );
+        m_srcloc = srcloc;
+        m_depth = -1;
     }
 
     tracy_force_inline ExplicitZone( const SourceLocationData* srcloc, int depth, bool is_active = true )
@@ -52,23 +39,29 @@ public:
         if( !m_active ) return;
         const auto thread = GetThreadHandle();
         m_thread = thread;
+        m_srcloc = srcloc;
+        m_depth = depth;
+    }
+
+    tracy_force_inline void EmitBegin()
+    {
         Magic magic;
         auto& token = s_token.ptr;
         auto& tail = token->get_tail_index();
-        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>( magic );
-        MemWrite( &item->hdr.type, QueueType::ZoneBeginCallstack );
-#ifdef TRACY_RDTSCP_OPT
-        MemWrite( &item->zoneBegin.time, Profiler::GetTime( item->zoneBegin.cpu ) );
-#else
+        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>(magic);
+        (m_depth >= 0) ? MemWrite(&item->hdr.type, QueueType::ZoneBeginCallstack) : MemWrite(&item->hdr.type, QueueType::ZoneBegin);
+        #ifdef TRACY_RDTSCP_OPT
+        MemWrite(&item->zoneBegin.time, Profiler::GetTime(item->zoneBegin.cpu));
+        #else
         uint32_t cpu;
-        MemWrite( &item->zoneBegin.time, Profiler::GetTime( cpu ) );
-        MemWrite( &item->zoneBegin.cpu, cpu );
-#endif
-        MemWrite( &item->zoneBegin.thread, thread );
-        MemWrite( &item->zoneBegin.srcloc, (uint64_t)srcloc );
-        tail.store( magic + 1, std::memory_order_release );
+        MemWrite(&item->zoneBegin.time, Profiler::GetTime(cpu));
+        MemWrite(&item->zoneBegin.cpu, cpu);
+        #endif
+        MemWrite(&item->zoneBegin.thread, m_thread);
+        MemWrite(&item->zoneBegin.srcloc, (uint64_t)m_srcloc);
+        tail.store(magic + 1, std::memory_order_release);
 
-        s_profiler.SendCallstack( depth, thread );
+        if(m_depth >= 0) s_profiler.SendCallstack(m_depth, m_thread);
     }
 
     tracy_force_inline ~ExplicitZone()
@@ -124,6 +117,8 @@ public:
 
 private:
     uint64_t m_thread;
+    const SourceLocationData* m_srcloc;
+    int m_depth;
     const bool m_active;
 };
 

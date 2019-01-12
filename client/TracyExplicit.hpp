@@ -64,39 +64,38 @@ public:
         if(m_depth >= 0) s_profiler.SendCallstack(m_depth, m_thread);
     }
 
-    tracy_force_inline ~ExplicitZone()
+    tracy_force_inline void EmitEnd()
     {
-        if( !m_active ) return;
         Magic magic;
         auto& token = s_token.ptr;
         auto& tail = token->get_tail_index();
-        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>( magic );
-        MemWrite( &item->hdr.type, QueueType::ZoneEnd );
-#ifdef TRACY_RDTSCP_OPT
-        MemWrite( &item->zoneEnd.time, Profiler::GetTime( item->zoneEnd.cpu ) );
-#else
+        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>(magic);
+        MemWrite(&item->hdr.type, QueueType::ZoneEnd);
+        #ifdef TRACY_RDTSCP_OPT
+        MemWrite(&item->zoneEnd.time, Profiler::GetTime(item->zoneEnd.cpu));
+        #else
         uint32_t cpu;
-        MemWrite( &item->zoneEnd.time, Profiler::GetTime( cpu ) );
-        MemWrite( &item->zoneEnd.cpu, cpu );
-#endif
-        MemWrite( &item->zoneEnd.thread, m_thread );
-        tail.store( magic + 1, std::memory_order_release );
+        MemWrite(&item->zoneEnd.time, Profiler::GetTime(cpu));
+        MemWrite(&item->zoneEnd.cpu, cpu);
+        #endif
+        MemWrite(&item->zoneEnd.thread, m_thread);
+        tail.store(magic + 1, std::memory_order_release);
     }
 
-    tracy_force_inline void Text( const char* txt, size_t size )
+    tracy_force_inline void Text(const char* txt, size_t size)
     {
-        if( !m_active ) return;
+        if(!m_active) return;
         Magic magic;
         auto& token = s_token.ptr;
-        auto ptr = (char*)tracy_malloc( size+1 );
-        memcpy( ptr, txt, size );
+        auto ptr = (char*)tracy_malloc(size + 1);
+        memcpy(ptr, txt, size);
         ptr[size] = '\0';
         auto& tail = token->get_tail_index();
-        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>( magic );
-        MemWrite( &item->hdr.type, QueueType::ZoneText );
-        MemWrite( &item->zoneText.thread, m_thread );
-        MemWrite( &item->zoneText.text, (uint64_t)ptr );
-        tail.store( magic + 1, std::memory_order_release );
+        auto item = token->enqueue_begin<tracy::moodycamel::CanAlloc>(magic);
+        MemWrite(&item->hdr.type, QueueType::ZoneText);
+        MemWrite(&item->zoneText.thread, m_thread);
+        MemWrite(&item->zoneText.text, (uint64_t)ptr);
+        tail.store(magic + 1, std::memory_order_release);
     }
 
     tracy_force_inline void Name( const char* txt, size_t size )
